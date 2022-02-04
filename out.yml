@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: An AWS Lambda application that calls the Lambda API and uses Lambda to
+  processing Messages from SQS.
+Resources:
+  function:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambdaDocGenerator::lambdaDocGenerator.Function::FunctionHandler
+      Runtime: dotnetcore3.1
+      CodeUri: s3://lambda-artifacts-09b4a1f6768cfd9e/7aec839ff0c6f331153dcbf048e22a52
+      Description: Call the AWS Lambda API
+      MemorySize: 256
+      Timeout: 9
+      Policies:
+      - AWSLambdaBasicExecutionRole
+      - AWSLambda_ReadOnlyAccess
+      - AWSXrayWriteOnlyAccess
+      Tracing: Active
+  SQSQueueFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambdaDocGenerator::lambdaDocGenerator.SQSLambdaFunction::HandleSQSEvent
+      Runtime: dotnetcore3.1
+      CodeUri: s3://lambda-artifacts-09b4a1f6768cfd9e/7aec839ff0c6f331153dcbf048e22a52
+      Description: Process the message from a SQS queue
+      Events:
+        MySQSEvent:
+          Type: SQS
+          Properties:
+            Queue:
+              Fn::GetAtt:
+              - MySqsQueue
+              - Arn
+            BatchSize: 10
+      Policies:
+      - AWSLambdaBasicExecutionRole
+      - AWSLambda_ReadOnlyAccess
+      - AWSXrayWriteOnlyAccess
+  MySqsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      ContentBasedDeduplication: false
+      DeduplicationScope: queue
+      DelaySeconds: 0
+      FifoQueue: true
+      FifoThroughputLimit: perQueue
+      MaximumMessageSize: 262144
+      MessageRetentionPeriod: 345600
+      QueueName: opensearch2.fifo
+      ReceiveMessageWaitTimeSeconds: 0
+      RedrivePolicy:
+        deadLetterTargetArn: arn:aws:sqs:us-east-1:778996585753:opensearch-mydlq.fifo
+        maxReceiveCount: 100
+      VisibilityTimeout: 30
